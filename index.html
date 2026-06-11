@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUCESTUDIO 加油机示值误差计算</title>
+    <!-- 引入Tailwind CSS 样式框架 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#83b7e6',
+                        cellcolor: '#549fe3',
+                        success: '#059669',
+                        danger: '#DC2626',
+                        neutral: '#F8FAFC',
+                        light: '#E8F3FF'
+                    },
+                    fontFamily: {
+                        yahei: ['Microsoft YaHei', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-base {
+                @apply px-3 py-2 rounded-md transition-all duration-200 text-sm md:text-base font-medium;
+            }
+            .btn-hover {
+                @apply hover:shadow-md active:scale-95;
+            }
+            .cell-input {
+                @apply w-full h-full px-1.5 py-1 border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-primary text-center;
+            }
+            .cell-select {
+                @apply w-full h-full px-1.5 py-1 border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-primary text-center bg-white;
+            }
+        }
+
+        /* ========== 打印专用样式 ========== */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: #fff !important;
+                font-size: 10pt !important;
+                margin: 0.3cm !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            th, td {
+                border: 1px solid #222 !important;
+                padding: 3px 4px !important;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+            .text-success, .text-danger {
+                color: #000 !important;
+                font-weight: normal !important;
+            }
+            .sign-area {
+                margin-top: 20px !important;
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-yahei min-h-screen p-2 md:p-4">
+<div class="max-w-[1920px] mx-auto">
+    <!-- 头部标题 & 说明 -->
+    <div class="bg-primary text-white rounded-lg shadow-lg p-4 md:p-6 mb-4">
+        <h1 class="text-xl md:text-2xl lg:text-3xl font-bold text-center mb-2">燃油加油机检定误差计算</h1>
+        <p class="text-center text-blue-100 text-sm md:text-base">JJG443-2023《中华人民共和国计量检定规程 燃油加油机（试行） 》</p>
+    </div>
+
+    <!-- 全局选择项 & 操作按钮（打印隐藏） -->
+    <div class="no-print bg-white rounded-lg shadow-md p-4 mb-4">
+        <!-- 全局选择 -->
+        <div class="flex flex-wrap justify-center gap-4 mb-5">
+            <div class="flex items-center gap-2">
+                <label class="font-medium">请选择标准容器材质：</label>
+                <select id="materialSel" class="cell-select w-36 md:w-40">
+                    <option value="0.00005">不锈钢</option>
+                    <option value="0.000033">碳钢</option>
+                    <option value="0.000053">黄铜(青铜)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 操作按钮组 -->
+        <div class="flex flex-wrap justify-center gap-3">
+            <button onclick="addGroup()" class="btn-base bg-primary text-white btn-hover">➕ 新增加油机检定组</button>
+            <button onclick="resetAllData()" class="btn-base bg-amber-500 text-white btn-hover">🔄 重置所有数据</button>
+            <button onclick="printDoc()" class="btn-base bg-emerald-500 text-white btn-hover">🖨️ 打印 / 打印预览</button>
+            <button onclick="clearAllGroup()" class="btn-base bg-red-500 text-white btn-hover">🗑️ 清空所有组别</button>
+        </div>
+    </div>
+
+    <!-- 表格容器 横向滚动（适配多列） -->
+    <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+        <table class="w-full min-w-[1400px] border-collapse text-xs md:text-sm">
+            <thead>
+            <tr class="bg-primary text-white text-center">
+                <th class="border p-2">加油机编号</th>
+                <th class="border p-2">油品名称</th>
+                <th class="border p-2">标准量器标高容积H0(L)</th>
+                <th class="border p-2">计量颈分度容积K(ml)</th>
+                <th class="border p-2">证书标高(mm)</th>
+                <th class="border p-2">量器刻度H(mm)</th>
+                <th class="border p-2">加油机示值Vj(L)</th>
+                <th class="border p-2">量器示值(VB)</th>
+                <th class="border p-2">油枪出口处油温tj(℃)</th>
+                <th class="border p-2">量器内油温tB(℃)</th>
+                <th class="border p-2">实际体积值Vbt（L)</th>
+                <th class="border p-2">单次测量误差Ev（%）</th>
+                <th class="border p-2">平均示值误差Ev.avg(%)</th>
+                <th class="border p-2">重复性(Er)</th>
+                <th class="border p-2">检定结果</th>
+                <th class="border p-2 no-print">操作</th>
+            </tr>
+            </thead>
+            <tbody id="tableBody">
+            <!-- 动态生成检定行 -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 签字栏 【校验人、站经理、县区经理】 支持打印 -->
+    <div class="sign-area bg-white rounded-lg shadow-md p-4 mt-4">
+        <table class="w-full border-collapse text-sm">
+            <tr>
+                <td class="border p-3 w-1/3 text-center">
+                    校验人：<span class="inline-block w-32 border-b border-black ml-2"></span>
+                </td>
+                <td class="border p-3 w-1/3 text-center">
+                    站经理：<span class="inline-block w-32 border-b border-black ml-2"></span>
+                </td>
+                <td class="border p-3 w-1/3 text-center">
+                    县区经理：<span class="inline-block w-32 border-b border-black ml-2"></span>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- 底部说明区域（打印隐藏） -->
+    <div class="no-print mt-4 bg-white rounded-lg shadow p-4 text-gray-600 text-xs md:text-sm">
+        <h3 class="font-bold text-primary mb-2">📋 操作说明 & 规程要求</h3>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>最大允许误差：<span class="text-danger font-medium">±0.30%</span>，重复性要求：<span class="text-danger font-medium">≤0.10%</span></li>
+            <li>先选择标准容器材质，再录入检定原始数据，所有计算结果自动实时更新</li>
+            <li>每3条测量数据为一个加油机检定单元，系统自动计算平均示值误差、重复性和检定结果</li>
+            <li>检定结果自动标色：<span class="text-success font-medium">绿色=合格</span>，<span class="text-danger font-medium">红色=不合格</span></li>
+            <li>点击【打印/打印预览】可直接调用浏览器打印功能，建议选择 <b>A4 横向</b> 打印，打印后可在底部签字栏手写签字归档</li>
+        </ul>
+    </div>
+    <div class="no-print mt-4 bg-white rounded-lg shadow p-4 text-gray-600 text-center  md:text-sm">
+        <h3 class="font-bold ">100985.xyz© 2006-2026 LUCESTUDIO All Rights Reserved 车车工作室 </h3>
+
+
+        </ul>
+    </div>
+</div>
+
+<script>
+    // 全局参数
+    let groupCount = 0;
+    const MPE = 0.30;    // 最大允许误差 ±0.30%
+    const ReLimit = 0.10;// 重复性限值 0.10%
+    const d = 1.69;      // 3次测量极差系数
+
+    // 油品膨胀系数映射
+    const oilCoeffMap = {
+        '汽油': 0.0012,
+        '轻柴油': 0.0009,
+        '煤油': 0.0009
+    };
+
+    // 页面加载默认生成1组（3行）检定数据
+    window.onload = function () {
+        addGroup();
+    };
+
+    // ========== 打印/打印预览功能 ==========
+    function printDoc() {
+        // 调用浏览器原生打印（自带打印预览）
+        window.print();
+    }
+
+    // ========== 新增一组检定数据 ==========
+    function addGroup() {
+        groupCount++;
+        const body = document.getElementById('tableBody');
+        const materialCoeff = parseFloat(document.getElementById('materialSel').value);
+
+        // 一组3条记录
+        for (let i = 0; i < 3; i++) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-light text-center';
+            tr.innerHTML = `
+                    <td class="border p-1 group-no">${groupCount}</td>
+                    <td class="border p-1">
+                        <select class="cell-select oil-select" ${i > 0 ? 'disabled' : ''}>
+                            <option value="汽油">汽油</option>
+                            <option value="轻柴油">轻柴油</option>
+                            <option value="煤油">煤油</option>
+                        </select>
+                    </td>
+                    <td class="border p-1"><input class="cell-input" type="number" step="0.001" value="20" oninput="autoCalc(this)"></td>
+                    <td class="border p-1"><input class="cell-input" type="number" step="0.001" value="2" oninput="autoCalc(this)"></td>
+                    <td class="border p-1"><input class="cell-input" type="number" step="0.01" value="72" oninput="autoCalc(this)"></td>
+                    <td class="border p-1"><input class="cell-input" type="number" step="0.01" oninput="autoCalc(this)"></td>
+                    <td class="border p-1"><input class="cell-input" type="number" step="0.001" oninput="autoCalc(this)"></td>
+                    <td class="border p-1 calc-col vb-col">-</td>
+                    <td class="border p-1"><input class="cell-input" type="number" step="0.1" value="20" oninput="autoCalc(this)"></td>
+                    <td class="border p-1"><input class="cell-input" type="number" step="0.1" value="20" oninput="autoCalc(this)"></td>
+                    <td class="border p-1 calc-col vbt-col">-</td>
+                    <td class="border p-1 calc-col ev-col">-</td>
+                    <td class="border p-1 calc-col avg-col">-</td>
+                    <td class="border p-1 calc-col rep-col">-</td>
+                    <td class="border p-1 calc-col res-col font-bold">-</td>
+                    <td class="border p-1 no-print">
+                        <button class="bg-red-400 text-white px-2 py-0.5 rounded text-xs" onclick="delLine(this)">删除</button>
+                    </td>
+                `;
+            body.appendChild(tr);
+        }
+        // 绑定同组油品选择联动（第一行修改，后两行自动同步）
+        bindOilSelectLinkage();
+    }
+
+    // 同组油品选择联动,后两行继承第一行油品
+    function bindOilSelectLinkage() {
+        const allTr = document.querySelectorAll('#tableBody tr');
+        let currentGroup = null;
+        let firstSelect = null;
+
+        allTr.forEach(tr => {
+            const groupNo = tr.querySelector('.group-no').innerText;
+            const select = tr.querySelector('.oil-select');
+
+            if (groupNo !== currentGroup) {
+                currentGroup = groupNo;
+                firstSelect = select;
+                // 第一行选择变化时，同步同组其他行
+                firstSelect.onchange = function () {
+                    const groupRows = getGroupRows(currentGroup);
+                    groupRows.forEach(row => {
+                        const s = row.querySelector('.oil-select');
+                        s.value = firstSelect.value;
+                        autoCalc(s);
+                    });
+                };
+            } else {
+                // 后两行自动同步第一行的值
+                select.value = firstSelect.value;
+            }
+        });
+    }
+
+    // 获取同一组的所有行
+    function getGroupRows(groupNo) {
+        const allTr = document.querySelectorAll('#tableBody tr');
+        const groupRows = [];
+        allTr.forEach(tr => {
+            if (tr.querySelector('.group-no').innerText === groupNo) {
+                groupRows.push(tr);
+            }
+        });
+        return groupRows;
+    }
+
+    // 单行删除
+    function delLine(btn) {
+        const tr = btn.closest('tr');
+        tr.remove();
+        // 重新编排加油机编号
+        reGroupIndex();
+        // 重新绑定油品联动
+        bindOilSelectLinkage();
+    }
+
+    // 清空所有组别
+    function clearAllGroup() {
+        if (confirm('确定清空所有检定数据？')) {
+            document.getElementById('tableBody').innerHTML = '';
+            groupCount = 0;
+        }
+    }
+
+    // 重置所有输入框数据
+    function resetAllData() {
+        const inputs = document.querySelectorAll('input.cell-input');
+        const selects = document.querySelectorAll('select.cell-select');
+        const calcCells = document.querySelectorAll('.calc-col');
+
+        inputs.forEach(inp => inp.value = inp.defaultValue);
+        selects.forEach(sel => sel.value = '汽油');
+        calcCells.forEach(td => {
+            td.innerText = '-';
+            td.className = td.className.replace('text-success', '').replace('text-danger', '');
+        });
+    }
+
+    // 重新编排加油机编号
+    function reGroupIndex() {
+        const trList = document.querySelectorAll('#tableBody tr');
+        let num = 1;
+        let lineCnt = 0;
+        trList.forEach(tr => {
+            lineCnt++;
+            tr.querySelector('.group-no').innerText = num;
+            if (lineCnt >= 3) {
+                lineCnt = 0;
+                num++;
+            }
+        });
+        groupCount = num - 1;
+    }
+
+    // ========== 核心计算逻辑 ==========
+    function autoCalc(input) {
+        const tr = input.closest('tr');
+        const tds = tr.querySelectorAll('td');
+        const groupNo = tr.querySelector('.group-no').innerText;
+        const materialCoeff = parseFloat(document.getElementById('materialSel').value);
+        const oilType = tr.querySelector('.oil-select').value;
+        const oilCoeff = oilCoeffMap[oilType];
+
+        // 读取单元格数据（与Excel列一一对应）
+        const C = parseFloat(tds[2].querySelector('input').value) || 0;  // 标准量器标高容积H0(L)
+        const D = parseFloat(tds[3].querySelector('input').value) || 0;  // 计量颈分度容积K(ml)
+        const E = parseFloat(tds[4].querySelector('input').value) || 0;  // 证书标高(mm)
+        const F = parseFloat(tds[5].querySelector('input').value) || 0;  // 量器刻度H(mm)
+        const G = parseFloat(tds[6].querySelector('input').value) || 0;  // 加油机示值Vj(L)
+        const I = parseFloat(tds[8].querySelector('input').value) || 0;  // 油枪出口处油温tj(℃)
+        const J = parseFloat(tds[9].querySelector('input').value) || 0;  // 量器内油温tB(℃)
+
+        // 1. 量器示值VB = ROUND(((F-E)*D/1000+C),3) （与Excel完全一致）
+        // const VB = Math.round(((F - E) * D / 1000 + C) * 1000) / 1000;
+        // 2. 实际体积值Vbt = ROUND(VB*(1+oilCoeff*(I-J)+materialCoeff*(J-20)),3)
+        const Vbt = Math.round(VB * (1 + oilCoeff * (I - J) + materialCoeff * (J - 20)) * 1000) / 1000;
+        // 3. 单次测量误差Ev = ROUND((G-Vbt)/Vbt*100,2) （与Excel完全一致）
+        const Ev = Vbt === 0 ? 0 : Math.round((G - Vbt) / Vbt * 100 * 100) / 100;
+
+        // 回填单次计算结果
+        tds[7].innerText = VB.toFixed(3);
+        tds[10].innerText = Vbt.toFixed(3);
+        tds[11].innerText = Ev.toFixed(2);
+
+        // 同组3行统一计算：平均示值误差、重复性、检定结果
+        calcGroupResult(groupNo);
+    }
+
+    // 计算同一组的平均示值误差、重复性、检定结果
+    function calcGroupResult(groupNo) {
+        const groupRows = getGroupRows(groupNo);
+        if (groupRows.length !== 3) return;
+
+        // 提取本组3个单次误差
+        const evArr = [];
+        groupRows.forEach(tr => {
+            const evTxt = tr.children[11].innerText;
+            const ev = parseFloat(evTxt) || 0;
+            evArr.push(ev);
+        });
+
+        // 1. 平均示值误差 = ROUND(AVERAGE(Ev1,Ev2,Ev3),2)
+        const avgEv = Math.round((evArr[0] + evArr[1] + evArr[2]) / 3 * 100) / 100;
+        // 2. 重复性Er = ROUND((MAX(Ev1,Ev2,Ev3)-MIN(Ev1,Ev2,Ev3))/1.69,2)
+        const evMax = Math.max(...evArr);
+        const evMin = Math.min(...evArr);
+        const Er = Math.round((evMax - evMin) / d * 100) / 100;
+
+        // 3. 检定结果判定
+        const absAvg = Math.abs(avgEv);
+        let result = '';
+        let resClass = '';
+        if (absAvg <= MPE && Er <= ReLimit) {
+            result = '合格';
+            resClass = 'text-success';
+        } else {
+            result = '不合格';
+            resClass = 'text-danger';
+        }
+
+        // 回填本组统一结果
+        groupRows.forEach(tr => {
+            tr.children[12].innerText = avgEv.toFixed(2);
+            tr.children[13].innerText = Er.toFixed(2);
+            tr.children[14].innerText = result;
+            tr.children[14].className = `border p-1 calc-col res-col font-bold ${resClass}`;
+        });
+    }
+</script>
+</body>
+</html>
