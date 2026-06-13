@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加能站商品盘点报表</title>
+    <!-- 外部依赖库 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0F4C81',
+                        primaryLight: '#2068a8',
+                        primaryDark: '#08365f',
+                        success: '#059669',
+                        danger: '#DC2626',
+                        warning: '#F59E0B',
+                        neutral: '#F8FAFC',
+                        tableRow: '#E8F3FF',
+                        navBg: '#0b3b6b'
+                    },
+                    fontFamily: {
+                        yahei: ['Microsoft YaHei', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-base {
+                @apply px-3 py-2 rounded-md transition-all duration-200 text-sm md:text-base font-medium shadow-sm;
+            }
+            .btn-hover {
+                @apply hover:shadow-md active:scale-95;
+            }
+            .cell-input {
+                @apply w-full h-full px-1.5 py-1 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary/60 text-center bg-white;
+            }
+            .cell-select {
+                @apply w-full h-full px-1.5 py-1 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary/60 text-center bg-white;
+            }
+            .cell-readonly {
+                @apply w-full h-full px-1.5 py-1 border border-gray-300 rounded-sm bg-gray-50 text-center;
+            }
+            .nav-item {
+                @apply px-4 py-2 hover:bg-primaryDark rounded transition-colors cursor-pointer;
+            }
+        }
+
+        /* 打印样式 */
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: #fff !important; font-size: 10pt; margin: 0.2cm; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #222; padding: 3px 4px; }
+            tr { page-break-inside: avoid; }
+            .text-success, .text-danger { color: #000; font-weight: normal; }
+        }
+
+        /* PDF 渲染样式 */
+        #pdfWrap { background: #ffffff !important; }
+        .pdf-mode .print-only { display: block !important; }
+        .pdf-mode table { font-size: 8pt !important; }
+        .pdf-mode th, .pdf-mode td {
+            padding: 2px 3px !important;
+            white-space: nowrap !important;
+            overflow: visible !important;
+        }
+        .pdf-mode input, .pdf-mode select { display: none !important; }
+
+        body {
+            background-color: #f1f5f9;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+    </style>
+</head>
+<body class="font-yahei min-h-screen">
+<div class="max-w-[1920px] mx-auto">
+    <!-- 顶部导航栏 -->
+    <!--    <nav class="no-print bg-navBg text-white shadow-md sticky top-0 z-50">-->
+    <!--        <div class="flex flex-wrap items-center justify-between px-4 py-3">-->
+    <!--            <div class="text-lg md:text-xl font-bold">加能站管理系统</div>-->
+    <!--            <div class="flex flex-wrap gap-1 md:gap-2 mt-2 md:mt-0">-->
+    <!--                <span class="nav-item active bg-primary">商品盘点报表</span>-->
+    <!--                <span class="nav-item">油品进销存</span>-->
+    <!--                <span class="nav-item">加油机校验</span>-->
+    <!--                <span class="nav-item">密度换算</span>-->
+    <!--            </div>-->
+    <!--        </div>-->
+    <!--    </nav>-->
+    <!-- 功能操作栏 -->
+    <div class="no-print bg-white rounded-xl shadow-md p-4 md:p-5 mb-4">
+        <div class="flex flex-wrap justify-center gap-3 md:gap-4">
+            <!-- 上传Excel -->
+            <label class="btn-base bg-primary text-white btn-hover cursor-pointer">
+                📁 上传Excel
+                <input type="file" id="excelUpload" accept=".xlsx,.xls" class="hidden" onchange="importExcel(event)">
+            </label>
+            <button onclick="addRow()" class="btn-base bg-primary text-white btn-hover">➕ 新增品种行</button>
+            <button onclick="resetAll()" class="btn-base bg-warning text-white btn-hover">🔄 重置数据</button>
+            <button onclick="clearAllRow()" class="btn-base bg-danger text-white btn-hover">🗑️ 清空所有行</button>
+            <button onclick="exportExcel()" class="btn-base bg-green-600 text-white btn-hover">📊 导出XLS</button>
+            <button onclick="exportPdf()" class="btn-base bg-blue-600 text-white btn-hover">📄 导出PDF</button>
+            <button onclick="window.print()" class="btn-base bg-emerald-500 text-white btn-hover">🖨️ 打印预览</button>
+        </div>
+    </div>
+    <!-- 报表头部信息 -->
+
+    <div class="p-2 md:p-4">
+            <!-- 头部标题区 -->
+            <header class=" text-gray-600 rounded-l  p-2 md:p-3 mb-1">
+                <h1 class="text-xl md:text-xl lg:text-xl font-bold text-center">加能站商品盘点表</h1>
+                <p class="text-center mt-2 text-gray-600 text-sm md:text-base"></p>
+    </div>
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <!-- 站名 -->
+        <div class="flex items-center gap-1">
+            <label class="font-light w-40 text-sm text-center ">站名：</label>
+            <input type="text" id="stationName" class="cell-input w-40 text-sm" value="**加能站">
+        </div>
+        <!-- 盘点日期 -->
+        <div class="flex items-center gap-2">
+            <label class="font-light w-40 text-sm">盘点日期：</label>
+            <input type="date" id="checkDate" class="cell-input w-40 text-sm" value="2026-06-13">
+        </div>
+        <!-- 计量单位 -->
+        <div class="flex items-center gap-2">
+            <label class="font-light w-40 text-sm">计量单位：</label>
+            <select id="unit" class="cell-select w-20 text-sm">
+                <option value="L" selected>升(L)</option>
+                <option value="kg">千克(kg)</option>
+                <option value="m³">立方米(m³)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- PDF/打印 总容器 -->
+    <div id="pdfWrap">
+        <!-- 打印/PDF 标题 -->
+        <div class="print-only text-center mb-4 hidden">
+            <h2 class="text-2xl font-bold">加能站商品盘点报表</h2>
+            <div class="flex justify-between mt-2 text-sm">
+                <span>站名：<span id="printStationName">**加能站</span></span>
+                <span>盘点日期：<span id="printCheckDate">2026-06-13</span></span>
+                <span>计量单位：<span id="printUnit">升(L)</span></span>
+            </div>
+        </div>
+
+        <!-- 盘点数据表格 -->
+        <div class="overflow-x-auto bg-white rounded-xl shadow-md mb-4">
+            <table class="w-full min-w-[1600px] border-collapse text-xs md:text-sm" id="mainTable">
+                <thead>
+                <tr class="bg-gray-300 text-black font-normal text-center">
+                    <th class="border p-2" rowspan="2">品种</th>
+                    <th class="border p-2" rowspan="2">上期账存</th>
+                    <th class="border p-2" rowspan="2">本期调入</th>
+                    <th class="border p-2" colspan="6">本期付出</th>
+                    <th class="border p-2" rowspan="2">核销损耗</th>
+                    <th class="border p-2" rowspan="2">调节</th>
+                    <th class="border p-2" rowspan="2">本期账存</th>
+                    <th class="border p-2" rowspan="2">实际盘点数量</th>
+                    <th class="border p-2" rowspan="2">损耗</th>
+                    <th class="border p-2" rowspan="2">损耗率</th>
+                    <th class="border p-2 no-print" rowspan="2">操作</th>
+                </tr>
+                <tr class="bg-gray-300 text-black font-normal text-center">
+                    <th class="border p-2">加注机付油1</th>
+                    <th class="border p-2">加注机付油2</th>
+                    <th class="border p-2">加注机付油3</th>
+                    <th class="border p-2">加注机付油4</th>
+                    <th class="border p-2">非加注机付出1</th>
+                    <th class="border p-2">非加注机付出2</th>
+                </tr>
+                </thead>
+                <tbody id="tableBody">
+                <!-- 动态数据行 -->
+                </tbody>
+                <tfoot>
+                <tr class="bg-gray-100 font-bold text-center">
+                    <td class="border p-2">合计</td>
+                    <td class="border p-2" id="totalLastStock">-</td>
+                    <td class="border p-2" id="totalIn">-</td>
+                    <td class="border p-2" id="totalOut1">-</td>
+                    <td class="border p-2" id="totalOut2">-</td>
+                    <td class="border p-2" id="totalOut3">-</td>
+                    <td class="border p-2" id="totalOut4">-</td>
+                    <td class="border p-2" id="totalOut5">-</td>
+                    <td class="border p-2" id="totalOut6">-</td>
+                    <td class="border p-2" id="totalLoss">-</td>
+                    <td class="border p-2" id="totalAdjust">-</td>
+                    <td class="border p-2" id="totalStock">-</td>
+                    <td class="border p-2" id="totalCheck">-</td>
+                    <td class="border p-2" id="totalDiff">-</td>
+                    <td class="border p-2" id="totalRate">-</td>
+                    <td class="border p-2 no-print"></td>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- 打印日期 -->
+        <div class="print-only text-right mt-2 pr-4 hidden">
+            <p class="text-sm">打印日期：<span id="printDate"></span></p>
+        </div>
+    </div>
+
+    <!-- 底部说明 -->
+    <div class="no-print bg-white rounded-xl shadow-md p-4 md:p-5 mt-4">
+        <h3 class="font-bold text-primary text-base mb-3">📋 使用说明</h3>
+        <ul class="text-gray-600 text-sm space-y-2 list-disc pl-5">
+            <li>品种列可直接下拉选择对应油品/能源，无需手动输入</li>
+            <li>填写上期账存、本期调入、各项付出、核销损耗、调节、实际盘点数量，系统自动计算</li>
+            <li><strong>本期账存计算公式</strong>：上期账存 + 本期调入 - 加油机付出1-4 - 非加油机付出1-2 - 核销损耗 + 调节</li>
+            <li><strong>损耗率</strong>：统一保留小数点后3位，计算公式为 损耗 / 本期付出合计 × 100%</li>
+            <li>数值输入框支持鼠标滚轮滚动调整数值，滚动一次增减100单位</li>
+            <li>支持上传Excel文件导入数据，导出为带样式的Excel/PDF格式，打印预览</li>
+            <li>打印建议：A4纸张、横向排版、缩放60%，关闭页眉页脚</li>
+        </ul>
+    </div>
+</div>
+</div>
+
+<script>
+    // 全局配置
+    let rowIndex = 0;
+    const DEFAULT_ROW = 4; // 默认4行数据
+    const SCROLL_STEP = 100; // 滚轮调整步长
+    // 品种下拉选项
+    const VARIETY_OPTIONS = [
+        "-50#柴油",
+        "-35#柴油",
+        "-20#柴油",
+        "-10#柴油",
+        "0#柴油",
+        "92#汽油",
+        "95#汽油",
+        "爱跑95#汽油",
+        "98#汽油",
+        "爱跑98#汽油",
+        "CNG",
+        "LNG"
+    ];
+    // Excel样式配置
+    const EXCEL_STYLES = {
+        header: {
+            font: { bold: true, color: { rgb: "FFFFFF" }, name: "Microsoft YaHei", sz: 11 },
+            fill: { fgColor: { rgb: "0F4C81" }, patternType: "solid" },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            border: {
+                top: { style: "thin", color: { rgb: "222222" } },
+                bottom: { style: "thin", color: { rgb: "222222" } },
+                left: { style: "thin", color: { rgb: "222222" } },
+                right: { style: "thin", color: { rgb: "222222" } }
+            }
+        },
+        data: {
+            font: { name: "Microsoft YaHei", sz: 10 },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+                top: { style: "thin", color: { rgb: "222222" } },
+                bottom: { style: "thin", color: { rgb: "222222" } },
+                left: { style: "thin", color: { rgb: "222222" } },
+                right: { style: "thin", color: { rgb: "222222" } }
+            }
+        },
+        total: {
+            font: { bold: true, name: "Microsoft YaHei", sz: 10 },
+            fill: { fgColor: { rgb: "F8FAFC" }, patternType: "solid" },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+                top: { style: "thin", color: { rgb: "222222" } },
+                bottom: { style: "thin", color: { rgb: "222222" } },
+                left: { style: "thin", color: { rgb: "222222" } },
+                right: { style: "thin", color: { rgb: "222222" } }
+            }
+        }
+    };
+
+    // 页面初始化
+    window.onload = function () {
+        // 初始化默认4行
+        for (let i = 0; i < DEFAULT_ROW; i++) addRow();
+        // 初始化日期
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2);
+        const d = String(now.getDate()).padStart(2);
+        document.getElementById('printDate').innerText = `${y}年${m}月${d}日`;
+        // 同步打印信息
+        syncPrintInfo();
+    };
+
+    // 同步打印信息
+    function syncPrintInfo() {
+        document.getElementById('printStationName').innerText = document.getElementById('stationName').value;
+        document.getElementById('printCheckDate').innerText = document.getElementById('checkDate').value;
+        const unitSelect = document.getElementById('unit');
+        document.getElementById('printUnit').innerText = unitSelect.options[unitSelect.selectedIndex].text;
+    }
+
+    // 新增数据行
+    function addRow() {
+        rowIndex++;
+        const tbody = document.getElementById('tableBody');
+        const tr = document.createElement('tr');
+        tr.className = rowIndex % 2 === 0 ? 'bg-tableRow text-center' : 'bg-white text-center';
+
+        // 生成品种下拉选择框
+        let selectHtml = `<select class="cell-select variety-select" onchange="calcRow(this)">
+                <option value="">请选择品种</option>`;
+        VARIETY_OPTIONS.forEach(option => {
+            selectHtml += `<option value="${option}">${option}</option>`;
+        });
+        selectHtml += `</select>`;
+
+        // 生成行HTML（17个数据列+操作列，共18列，与表头完全对应）
+        tr.innerHTML = `
+                <td class="border p-1">${selectHtml}</td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><div class="cell-readonly stock">-</div></td>
+                <td class="border p-1"><input type="number" step="0.01" class="cell-input num-input" oninput="calcRow(this)" onwheel="scrollAdjust(this, event)"></td>
+                <td class="border p-1"><div class="cell-readonly diff">-</div></td>
+                <td class="border p-1"><div class="cell-readonly rate">-</div></td>
+                <td class="border p-1 no-print">
+                    <button class="bg-red-400 text-white px-2 py-0.5 rounded text-xs" onclick="delRow(this)">删除</button>
+                </td>
+            </tr>`;
+
+        tbody.appendChild(tr);
+    }
+
+    // 删除单行
+    function delRow(btn) {
+        btn.closest('tr').remove();
+        calcTotal();
+    }
+
+    // 清空所有行
+    function clearAllRow() {
+        if (confirm("确定清空所有数据行？")) {
+            document.getElementById('tableBody').innerHTML = '';
+            rowIndex = 0;
+            calcTotal();
+        }
+    }
+
+    // 重置所有数据
+    function resetAll() {
+        document.querySelectorAll('#tableBody input').forEach(i => i.value = '');
+        document.querySelectorAll('#tableBody select').forEach(s => s.value = '');
+        document.querySelectorAll('.stock, .diff, .rate').forEach(c => c.innerText = '-');
+        calcTotal();
+    }
+
+    // 鼠标滚轮调整数值
+    function scrollAdjust(input, event) {
+        event.preventDefault();
+        const step = event.deltaY < 0 ? SCROLL_STEP : -SCROLL_STEP;
+        const currentVal = parseFloat(input.value) || 0;
+        input.value = (currentVal + step).toFixed(2);
+        calcRow(input);
+    }
+
+    // 单行计算
+    function calcRow(input) {
+        const tr = input.closest('tr');
+        const inputs = tr.querySelectorAll('.num-input');
+        const stockDiv = tr.querySelector('.stock');
+        const diffDiv = tr.querySelector('.diff');
+        const rateDiv = tr.querySelector('.rate');
+
+        // 读取数值（与列索引完全对应）
+        const lastStock = parseFloat(inputs[0].value) || 0;    // 上期账存
+        const inStock = parseFloat(inputs[1].value) || 0;     // 本期调入
+        const out1 = parseFloat(inputs[2].value) || 0;        // 加油机付油1
+        const out2 = parseFloat(inputs[3].value) || 0;        // 加油机付油2
+        const out3 = parseFloat(inputs[4].value) || 0;        // 加油机付油3
+        const out4 = parseFloat(inputs[5].value) || 0;        // 加油机付油4
+        const out5 = parseFloat(inputs[6].value) || 0;        // 非加油机付出1
+        const out6 = parseFloat(inputs[7].value) || 0;        // 非加油机付出2
+        const loss = parseFloat(inputs[8].value) || 0;        // 核销损耗
+        const adjust = parseFloat(inputs[9].value) || 0;      // 调节
+        const checkStock = parseFloat(inputs[10].value) || 0; // 实际盘点数量
+
+        // 本期付出合计
+        const totalOut = out1 + out2 + out3 + out4 + out5 + out6;
+        // 本期账存公式
+        const currentStock = lastStock + inStock - totalOut - loss + adjust;
+        // 损耗
+        const diff = currentStock - checkStock;
+        // 损耗率（3位小数）
+        const rate = totalOut === 0 ? '-' : (diff / totalOut * 100).toFixed(3) + '%';
+
+        // 回填结果
+        stockDiv.innerText = currentStock.toFixed(2);
+        diffDiv.innerText = diff.toFixed(2);
+        rateDiv.innerText = rate;
+
+        // 计算合计
+        calcTotal();
+    }
+
+    // 合计行计算
+    function calcTotal() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        let totalLastStock = 0, totalIn = 0, totalOut1 = 0, totalOut2 = 0, totalOut3 = 0, totalOut4 = 0, totalOut5 = 0, totalOut6 = 0;
+        let totalLoss = 0, totalAdjust = 0, totalStock = 0, totalCheck = 0, totalDiff = 0, totalOutAll = 0;
+
+        rows.forEach(tr => {
+            const inputs = tr.querySelectorAll('.num-input');
+            const stockDiv = tr.querySelector('.stock');
+            const diffDiv = tr.querySelector('.diff');
+
+            // 累加数值
+            totalLastStock += parseFloat(inputs[0].value) || 0;
+            totalIn += parseFloat(inputs[1].value) || 0;
+            totalOut1 += parseFloat(inputs[2].value) || 0;
+            totalOut2 += parseFloat(inputs[3].value) || 0;
+            totalOut3 += parseFloat(inputs[4].value) || 0;
+            totalOut4 += parseFloat(inputs[5].value) || 0;
+            totalOut5 += parseFloat(inputs[6].value) || 0;
+            totalOut6 += parseFloat(inputs[7].value) || 0;
+            totalLoss += parseFloat(inputs[8].value) || 0;
+            totalAdjust += parseFloat(inputs[9].value) || 0;
+            totalCheck += parseFloat(inputs[10].value) || 0;
+            totalStock += parseFloat(stockDiv.innerText) || 0;
+            totalDiff += parseFloat(diffDiv.innerText) || 0;
+        });
+
+        // 计算合计付出
+        totalOutAll = totalOut1 + totalOut2 + totalOut3 + totalOut4 + totalOut5 + totalOut6;
+        // 合计损耗率（3位小数）
+        const totalRate = totalOutAll === 0 ? '-' : (totalDiff / totalOutAll * 100).toFixed(3) + '%';
+
+        // 回填合计
+        document.getElementById('totalLastStock').innerText = totalLastStock.toFixed(2);
+        document.getElementById('totalIn').innerText = totalIn.toFixed(2);
+        document.getElementById('totalOut1').innerText = totalOut1.toFixed(2);
+        document.getElementById('totalOut2').innerText = totalOut2.toFixed(2);
+        document.getElementById('totalOut3').innerText = totalOut3.toFixed(2);
+        document.getElementById('totalOut4').innerText = totalOut4.toFixed(2);
+        document.getElementById('totalOut5').innerText = totalOut5.toFixed(2);
+        document.getElementById('totalOut6').innerText = totalOut6.toFixed(2);
+        document.getElementById('totalLoss').innerText = totalLoss.toFixed(2);
+        document.getElementById('totalAdjust').innerText = totalAdjust.toFixed(2);
+        document.getElementById('totalStock').innerText = totalStock.toFixed(2);
+        document.getElementById('totalCheck').innerText = totalCheck.toFixed(2);
+        document.getElementById('totalDiff').innerText = totalDiff.toFixed(2);
+        document.getElementById('totalRate').innerText = totalRate;
+    }
+
+    // 导入Excel
+    function importExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            // 清空现有数据
+            document.getElementById('tableBody').innerHTML = '';
+            rowIndex = 0;
+
+            // 解析数据（跳过前4行表头，从第5行开始）
+            for (let i = 4; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (!row || row.length === 0 || row[0] === '合计') continue;
+                addRow();
+                const tr = document.querySelectorAll('#tableBody tr')[rowIndex - 1];
+                const inputs = tr.querySelectorAll('.num-input');
+                const varietySelect = tr.querySelector('.variety-select');
+
+                // 填充数据（与列索引完全对应）
+                varietySelect.value = row[0] || '';
+                inputs[0].value = row[1] || 0;  // 上期账存
+                inputs[1].value = row[2] || 0;  // 本期调入
+                inputs[2].value = row[3] || 0;  // 加油机付油1
+                inputs[3].value = row[4] || 0;  // 加油机付油2
+                inputs[4].value = row[5] || 0;  // 加油机付油3
+                inputs[5].value = row[6] || 0;  // 加油机付油4
+                inputs[6].value = row[7] || 0;  // 非加油机付出1
+                inputs[7].value = row[8] || 0;  // 非加油机付出2
+                inputs[8].value = row[9] || 0;  // 核销损耗
+                inputs[9].value = row[10] || 0; // 调节
+                inputs[10].value = row[12] || 0;// 实际盘点数量
+
+                // 计算行
+                calcRow(inputs[0]);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // 导出Excel（带完整样式，已修复表头错位）
+    function exportExcel() {
+        // 创建工作簿
+        const wb = XLSX.utils.book_new();
+        const stationName = document.getElementById('stationName').value;
+        const checkDate = document.getElementById('checkDate').value;
+        const unit = document.getElementById('unit').options[document.getElementById('unit').selectedIndex].text;
+
+        // 表头数据（17列，索引0-15，完全对应）
+        const header1 = ['加能站商品盘点报表', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+        const header2 = [`站名：${stationName}`, '', '', '', `盘点日期：${checkDate}`, '', '', '', '', '', `计量单位：${unit}`, '', '', '', '', ''];
+        const header3 = ['品种', '上期账存', '本期调入', '本期付出', '', '', '', '', '', '', '核销损耗', '调节', '本期账存', '实际盘点数量', '损耗', '损耗率'];
+        const header4 = ['', '', '', '加油机付油1', '加油机付油2', '加油机付油3', '加油机付油4', '非加油机付出1', '非加油机付出2', '', '', '', '', '', '', ''];
+
+        // 数据行
+        const rows = [];
+        rows.push(header1, header2, header3, header4);
+
+        // 填充数据行
+        document.querySelectorAll('#tableBody tr').forEach(tr => {
+            const inputs = tr.querySelectorAll('.num-input');
+            const varietySelect = tr.querySelector('.variety-select');
+            const stockDiv = tr.querySelector('.stock');
+            const diffDiv = tr.querySelector('.diff');
+            const rateDiv = tr.querySelector('.rate');
+
+            const row = [
+                varietySelect.value,
+                inputs[0].value,
+                inputs[1].value,
+                inputs[2].value,
+                inputs[3].value,
+                inputs[4].value,
+                inputs[5].value,
+                inputs[6].value,
+                inputs[7].value,
+                inputs[8].value,
+                inputs[9].value,
+                stockDiv.innerText,
+                inputs[10].value,
+                diffDiv.innerText,
+                rateDiv.innerText
+            ];
+            rows.push(row);
+        });
+
+        // 合计行
+        const totalRow = [
+            '合计',
+            document.getElementById('totalLastStock').innerText,
+            document.getElementById('totalIn').innerText,
+            document.getElementById('totalOut1').innerText,
+            document.getElementById('totalOut2').innerText,
+            document.getElementById('totalOut3').innerText,
+            document.getElementById('totalOut4').innerText,
+            document.getElementById('totalOut5').innerText,
+            document.getElementById('totalOut6').innerText,
+            document.getElementById('totalLoss').innerText,
+            document.getElementById('totalAdjust').innerText,
+            document.getElementById('totalStock').innerText,
+            document.getElementById('totalCheck').innerText,
+            document.getElementById('totalDiff').innerText,
+            document.getElementById('totalRate').innerText
+        ];
+        rows.push(totalRow);
+
+        // 转换为工作表
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+
+        // 设置列宽（17列，索引0-15，完全对应）
+        const colWidths = [
+            { wch: 15 }, // 0 品种
+            { wch: 12 }, // 1 上期账存
+            { wch: 12 }, // 2 本期调入
+            { wch: 14 }, // 3 加油机付油1
+            { wch: 14 }, // 4 加油机付油2
+            { wch: 14 }, // 5 加油机付油3
+            { wch: 14 }, // 6 加油机付油4
+            { wch: 15 }, // 7 非加油机付出1
+            { wch: 15 }, // 8 非加油机付出2
+            { wch: 12 }, // 9 核销损耗
+            { wch: 12 }, // 10 调节
+            { wch: 12 }, // 11 本期账存
+            { wch: 15 }, // 12 实际盘点数量
+            { wch: 12 }, // 13 损耗
+            { wch: 12 }, // 14 损耗率
+        ];
+        ws['!cols'] = colWidths;
+
+        // 合并单元格（已修正索引，彻底解决错位）
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 15 } }, // 标题行合并 0-15列
+            { s: { r: 2, c: 3 }, e: { r: 2, c: 8 } }, // 本期付出合并 3-8列（6个付出子项）
+            { s: { r: 2, c: 0 }, e: { r: 3, c: 0 } }, // 品种合并 2行3行0列
+            { s: { r: 2, c: 1 }, e: { r: 3, c: 1 } }, // 上期账存合并 2行3行1列
+            { s: { r: 2, c: 2 }, e: { r: 3, c: 2 } }, // 本期调入合并 2行3行2列
+            { s: { r: 2, c: 9 }, e: { r: 3, c: 9 } }, // 核销损耗合并 2行3行9列
+            { s: { r: 2, c: 10 }, e: { r: 3, c: 10 } }, // 调节合并 2行3行10列
+            { s: { r: 2, c: 11 }, e: { r: 3, c: 11 } }, // 本期账存合并 2行3行11列
+            { s: { r: 2, c: 12 }, e: { r: 3, c: 12 } }, // 实际盘点数量合并 2行3行12列
+            { s: { r: 2, c: 13 }, e: { r: 3, c: 13 } }, // 损耗合并 2行3行13列
+            { s: { r: 2, c: 14 }, e: { r: 3, c: 14 } }, // 损耗率合并 2行3行14列
+        ];
+
+        // 给单元格添加样式
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let r = range.s.r; r <= range.e.r; r++) {
+            for (let c = range.s.c; c <= range.e.c; c++) {
+                const cellRef = XLSX.utils.encode_cell({ r, c });
+                if (!ws[cellRef]) continue;
+
+                // 表头样式（第3、4行，索引2、3）
+                if (r === 2 || r === 3) {
+                    ws[cellRef].s = EXCEL_STYLES.header;
+                }
+                // 合计行样式
+                else if (r === range.e.r) {
+                    ws[cellRef].s = EXCEL_STYLES.total;
+                }
+                // 数据行样式
+                else if (r >= 4) {
+                    ws[cellRef].s = EXCEL_STYLES.data;
+                }
+            }
+        }
+
+        // 添加到工作簿
+        XLSX.utils.book_append_sheet(wb, ws, '盘点报表');
+        // 导出文件
+        XLSX.writeFile(wb, `加能站商品盘点报表_${checkDate}.xlsx`);
+    }
+
+    // 导出PDF
+    async function exportPdf() {
+        const btn = event.target;
+        const oldTxt = btn.innerText;
+        btn.innerText = "生成中...";
+        btn.disabled = true;
+
+        // 同步打印信息
+        syncPrintInfo();
+        const wrap = document.getElementById('pdfWrap');
+        wrap.classList.add("pdf-mode");
+
+        try {
+            const canvas = await html2canvas(wrap, {
+                scale: 2.4,
+                useCORS: true,
+                backgroundColor: "#ffffff",
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: wrap.scrollWidth,
+                windowHeight: wrap.scrollHeight
+            });
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            const imgData = canvas.toDataURL("image/jpeg", 1.0);
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const maxW = 280;
+            const maxH = 190;
+            let scale = maxW / cw;
+            if (ch * scale > maxH) scale = maxH / ch;
+            const fw = cw * scale;
+            const fh = ch * scale;
+            const x = (297 - fw) / 2;
+            const y = 10;
+
+            pdf.addImage(imgData, "JPEG", x, y, fw, fh);
+            pdf.save(`加能站商品盘点报表_${document.getElementById('checkDate').value}.pdf`);
+        } catch (e) {
+            console.error("PDF导出错误：", e);
+            alert("PDF生成失败，请使用Chrome/Edge浏览器重试，错误信息：" + e.message);
+        } finally {
+            wrap.classList.remove("pdf-mode");
+            btn.innerText = oldTxt;
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>
