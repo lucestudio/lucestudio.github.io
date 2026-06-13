@@ -110,6 +110,19 @@
             background-position: center;
             background-size: 20px;
         }
+        /* 移动端导航专用样式 - 适配触摸 */
+        .mobile-nav-item {
+            /* 最小触摸高度：移动端标准 44px，这里设为 64px 更适合手指点击 */
+            min-height: 64px;
+            line-height: 1.5;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent; /* 去除移动端点击高亮 */
+        }
+
+        /* 移动端菜单展开/收起动画优化 */
+        #mobileMenu {
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="font-yahei min-h-screen">
@@ -137,16 +150,37 @@
                 <!-- 移动端菜单按钮 -->
                 <button id="menuBtn" class="md:hidden text-white text-2xl focus:outline-none">☰</button>
             </div>
-            <!-- 移动端菜单（默认隐藏） -->
-            <div id="mobileMenu" class="md:hidden hidden bg-redhat-dark">
+            <!-- 移动端下拉菜单 - 美化+大触摸区域 -->
+            <div id="mobileMenu" class="md:hidden hidden bg-redhat-base border-t border-redhat-light/30 transition-all duration-300">
                 <ul class="flex flex-col">
-                    <li><a class="nav-item" onclick="switchPage(0); closeMobileMenu();">首页</a></li>
-                    <li><a class="nav-item" onclick="switchPage(1); closeMobileMenu();">油机检定</a></li>
-                    <li><a class="nav-item" onclick="switchPage(2); closeMobileMenu();">即时盘点</a></li>
-                    <li><a class="nav-item" onclick="switchPage(3); closeMobileMenu();">进货验收</a></li>
-                    <li><a class="nav-item" onclick="switchPage(4); closeMobileMenu();">密度换算</a></li>
-                    <li><a class="nav-item" onclick="switchPage(5); closeMobileMenu();">规程文档</a></li>
-                    <li><a class="nav-item" onclick="switchPage(6); closeMobileMenu();">联系我们</a></li>
+                    <li>
+                        <a class="mobile-nav-item block w-full text-white text-center text-base py-4 px-6 hover:bg-redhat-dark active:bg-redhat-dark transition-colors"
+                           onclick="switchPage(0); closeMobileMenu();">首页</a>
+                    </li>
+                    <li>
+                        <a class="mobile-nav-item block w-full text-white text-center text-base py-4 px-6 hover:bg-redhat-dark active:bg-redhat-dark transition-colors"
+                           onclick="switchPage(1); closeMobileMenu();">油机检定</a>
+                    </li>
+                    <li>
+                        <a class="mobile-nav-item block w-full text-white text-center text-base py-4 px-6 hover:bg-redhat-dark active:bg-redhat-dark transition-colors"
+                           onclick="switchPage(2); closeMobileMenu();">即时盘点</a>
+                    </li>
+                    <li>
+                        <a class="mobile-nav-item block w-full text-white text-center text-base py-4 px-6 hover:bg-redhat-dark active:bg-redhat-dark transition-colors"
+                           onclick="switchPage(3); closeMobileMenu();">进货验收</a>
+                    </li>
+                    <li>
+                        <a class="mobile-nav-item block w-full text-white text-center text-base py-4 px-6 hover:bg-redhat-dark active:bg-redhat-dark transition-colors"
+                           onclick="switchPage(4); closeMobileMenu();">密度换算</a>
+                    </li>
+                    <li>
+                        <a class="mobile-nav-item block w-full text-white text-center text-base py-4 px-6 hover:bg-redhat-dark active:bg-redhat-dark transition-colors"
+                           onclick="switchPage(5); closeMobileMenu();">规程文档</a>
+                    </li>
+                    <li>
+                        <a class="mobile-nav-item block w-full text-white text-center text-base py-4 px-6 hover:bg-redhat-dark active:bg-redhat-dark transition-colors"
+                           onclick="switchPage(6); closeMobileMenu();">联系我们</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -278,17 +312,20 @@
 
 <script>
     // 移动端汉堡菜单
+    // ========== 移动端汉堡菜单交互 ==========
     const menuBtn = document.getElementById('menuBtn');
     const mobileMenu = document.getElementById('mobileMenu');
 
+    // 切换菜单展开/收起
     menuBtn.addEventListener('click', function () {
         mobileMenu.classList.toggle('hidden');
     });
 
+    // 点击菜单项关闭菜单
     function closeMobileMenu() {
         mobileMenu.classList.add('hidden');
     }
-    
+
     // ===================== 页面切换逻辑 =====================
     let currentPage = 0;
     // 导航切换页面 + 激活样式
