@@ -3,16 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>加能站常用管理工具</title>
+    <title>YOUPLUS加能站管理工具</title>
+    <!-- 外部依赖 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Tailwind 主题配置：统一红色主色调 -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        primary: '#bbbbbb',
+                        redhat: {
+                            base: '#d92121',
+                            dark: '#b81c1c',
+                            light: '#f84242'
+                        },
+                        primary: '#d92121',
                         primaryLight: '#3d77ac',
                         primaryDark: '#fa0000',
                         success: '#059669',
@@ -20,7 +28,6 @@
                         warning: '#F59E0B',
                         tableRow: '#E8F3FF',
                         navBg: '#d92121'
-
                     },
                     fontFamily: {
                         yahei: ['Microsoft YaHei', 'system-ui', 'sans-serif']
@@ -29,13 +36,18 @@
             }
         }
     </script>
+
     <style type="text/tailwindcss">
         @layer utilities {
             .btn-base {@apply px-3 py-2 rounded-md transition-all duration-200 text-sm md:text-base font-medium shadow-sm;}
             .btn-hover {@apply hover:shadow-md active:scale-95;}
             .cell-input {@apply w-full h-full px-1.5 py-1 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary/60 text-center bg-white;}
             .cell-select {@apply w-full h-full px-1.5 py-1 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary/60 text-center bg-white;}
-            .nav-item {@apply px-4 py-2 hover:bg-primaryDark rounded transition-colors cursor-pointer;}
+            .nav-item {@apply px-4 py-2 text-white hover:bg-redhat-dark rounded transition-colors cursor-pointer;}
+            .nav-active {@apply bg-redhat-dark;}
+            /* 页面模块切换 */
+            .page-box {@apply hidden;}
+            .page-show {@apply block;}
         }
 
         /* 打印样式 */
@@ -48,7 +60,7 @@
             .text-success, .text-danger { color: #000; font-weight: normal; }
         }
 
-        /* PDF & 打印共用标题、签字、日期样式 */
+        /* PDF & 打印通用样式 */
         .doc-title {
             font-size: 18px;
             font-weight: bold;
@@ -76,25 +88,24 @@
         .target-col .cell-input { padding: 1px 0.5px !important; }
         #pdfWrap { background: #ffffff; padding: 15px; }
 
+        /* 顶部Logo样式 */
         .logo {
             font-size: 24px;
             font-weight: bold;
-            color: black;
+            color: white;
             display: flex;
+            align-items: center;
             margin: 0;
-            text-align: center;
         }
-
         .logo::before {
             content: "";
             display: inline-block;
             width: 36px;
             height: 36px;
-            background-color:#d92121;
+            background-color:#ffffff;
             border-radius: 12px;
             margin-right: 12px;
-            /*  url编码：https://www.bejson.com/enc/urlencode/index.html在线转换 */
-            background-image: url("data:image/svg+xml,%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%3F%3E%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2048%2048%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M30%206H42V18%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M18%206H6V18%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M30%2042H42V30%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M18%2042H6V30%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M42%206L29%2019%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M19%2029L6%2042%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E");
+            background-image: url("data:image/svg+xml,%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%3F%3E%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2048%2048%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M30%206H42V18%22%20stroke%3D%22%23d92121%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M18%206H6V18%22%20stroke%3D%22%23d92121%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M30%2042H42V30%22%20stroke%3D%22%23d92121%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M18%2042H6V30%22%20stroke%3D%22%23d92121%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M42%206L29%2019%22%20stroke%3D%22%23d92121%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M19%2029L6%2042%22%20stroke%3D%22%23d92121%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E");
             background-repeat: no-repeat;
             background-position: center;
             background-size: 20px;
@@ -103,114 +114,179 @@
 </head>
 <body class="font-yahei min-h-screen">
 <div class="max-w-[1920px] mx-auto">
-    <!-- 顶部导航 仅网页显示 -->
-    <nav class="no-print bg-gray-100 text-black shadow-md sticky top-0 z-50">
-        <div class="flex flex-wrap items-center justify-between px-4 py-3">
-            <div class="logo ">LUCE</div>
+    <!-- ========== 顶部主导航（5个导航栏） ========== -->
+    <header class="sticky top-0 z-50 bg-redhat-base shadow-md">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-wrap items-center justify-between h-[70px]">
+                <!-- 站点Logo -->
+                <a href="#" class="logo">YOU+</a>
 
-            <div class="text-lg text-black font-black md:text-base "></div>
-            <div class="flex flex-wrap gap-1 md:gap-2 mt-2 md:mt-0 font-light">
-                <span class="nav-item">首页</span>
-                <span class="nav-item active ">油机检定</span>
-                <span class="nav-item">即时盘点</span>
-                <span class="nav-item">进货验收</span>
-                <span class="nav-item">密度换算</span>
-                <span class="nav-item">规程文档</span>
-                <span class="nav-item">使用帮助</span>
+                <!-- 主导航菜单 5项 -->
+                <nav class="hidden md:block">
+                    <ul class="flex items-center gap-1">
+                        <li><a class="nav-item" onclick="switchPage(0)">首页</a></li>
+                        <li><a class="nav-item nav-active" onclick="switchPage(1)">油机检定</a></li>
+                        <li><a class="nav-item" onclick="switchPage(2)">即时盘点</a></li>
+                        <li><a class="nav-item" onclick="switchPage(3)">进货验收</a></li>
+                        <li><a class="nav-item" onclick="switchPage(4)">密度换算</a></li>
+                        <li><a class="nav-item" onclick="switchPage(5)">规程文档</a></li>
+                        <li><a class="nav-item" onclick="switchPage(6)">联系我们</a></li>
+                    </ul>
+                </nav>
+
+                <!-- 移动端菜单按钮 -->
+                <button class="md:hidden text-white text-2xl">☰</button>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <div class="p-2 md:p-3">
-        <!-- 头部说明 仅网页显示 -->
-        <header class="no-print bg-gradient-to-r  text-black rounded-xl shadow-lg p-4 md:p-6 mb-4">
-            <h1 class="text-xl md:text-xl lg:text-xl text-black font-bold text-center">燃油加油机示值误差计算</h1>
-            <p class="text-center mt-1 text-black text-xs font-light md:text-base">依据JJG443-2023《中华人民共和国国家检定规程 燃油加油机（试行）》检定</p>
-        </header>
+    <!-- ========== 页面容器 - 多页面切换 ========== -->
+    <div class="p-2 md:p-4">
+        <!-- 1. 首页页面 -->
+        <div id="page0" class="page-box page-show">
+            <div class="bg-white rounded-xl shadow-md p-8 text-center">
+                <h2 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-redhat-base mb-4">欢迎访问YOU+加能站管理工具服务平台</h2>
+                <p class="text-gray-600 text-lg max-w-3xl mx-auto">
+                    以专业素养，助力加能站运营管理。
+                </p>
+            </div>
+        </div>
 
-        <!-- 操作按钮 仅网页显示 -->
-        <div class="no-print bg-gray-200 rounded-xl shadow-md p-4 md:p-5 mb-4">
-            <div class="flex flex-wrap justify-center gap-3 md:gap-4">
-                <div class="flex items-center gap-2">
-                    <label class="font-medium">请选择标准容器材质：</label>
-                    <select id="materialSel" class="cell-select w-36 md:w-40">
-                        <option value="0.00005">不锈钢</option>
-                        <option value="0.000033">碳钢</option>
-                        <option value="0.000053">黄铜(青铜)</option>
-                    </select>
+        <!-- 2. 油机检定页面】 -->
+        <div id="page1" class="page-box">
+            <!-- 头部说明 -->
+            <header class="no-print bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 rounded-xl shadow-lg p-4 md:p-6 mb-4">
+                <h1 class="text-xl md:text-2xl font-bold text-center">燃油加油机示值误差计算工具</h1>
+                <p class="text-center mt-2 text-sm md:text-base opacity-90">依据《中华人民共和国国家检定规程 燃油加油机（试行）》JJG443-2023检定</p>
+            </header>
+
+            <!-- 操作按钮区 -->
+            <div class="no-print bg-gray-200 rounded-xl shadow-md p-4 md:p-5 mb-4">
+                <div class="flex flex-wrap justify-center gap-3 md:gap-4">
+                    <div class="flex items-center gap-2">
+                        <label class="font-medium">请选择标准量器材质：</label>
+                        <select id="materialSel" class="cell-select w-36 md:w-40">
+                            <option value="0.00005">不锈钢</option>
+                            <option value="0.000033">碳钢</option>
+                            <option value="0.000053">黄铜(青铜)</option>
+                        </select>
+                    </div>
+                    <button onclick="addGroup()" class="btn-base bg-primary text-white btn-hover">➕ 新增加油机检定组</button>
+                    <button onclick="resetAllData()" class="btn-base bg-warning text-white btn-hover">🔄 重置所有数据</button>
+                    <button onclick="printDoc()" class="btn-base bg-emerald-500 text-white btn-hover">🖨️ 打印/预览</button>
+                    <button onclick="exportPdf()" class="btn-base bg-blue-600 text-white btn-hover">📄 导出PDF</button>
+                    <button onclick="clearAllGroup()" class="btn-base bg-danger text-white btn-hover">🗑️ 清空所有组别</button>
                 </div>
-                <button onclick="addGroup()" class="btn-base bg-primary text-white btn-hover">➕ 新增加油机检定组</button>
-                <button onclick="resetAllData()" class="btn-base bg-warning text-white btn-hover">🔄 重置所有数据</button>
-                <button onclick="printDoc()" class="btn-base bg-emerald-500 text-white btn-hover">🖨️ 打印/预览</button>
-                <button onclick="exportPdf()" class="btn-base bg-blue-600 text-white btn-hover">📄 导出PDF</button>
-                <button onclick="clearAllGroup()" class="btn-base bg-danger text-white btn-hover">🗑️ 清空所有组别</button>
+            </div>
+
+            <!-- PDF/打印 主体区域 -->
+            <div id="pdfWrap" class="rounded-xl shadow-md">
+                <div class="doc-title">燃油加油机检定记录表</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[1450px] border-collapse text-xs md:text-xs">
+                        <thead>
+                        <tr class="bg-gradient-to-r from-gray-400 to-gray-600 h-12 text-white text-center">
+                            <th class="border p-2 target-col-2">油机编号</th>
+                            <th class="border p-2 target-col">油品名称</th>
+                            <th class="border p-2 target-col">标高容积H0(L)</th>
+                            <th class="border p-2 target-col">分度容积K(ml)</th>
+                            <th class="border p-2 target-col">证书标高(mm)</th>
+                            <th class="border p-2 target-col">量器刻度H(mm)</th>
+                            <th class="border p-2 target-col">加油机示值Vj(L)</th>
+                            <th class="border p-2 target-col">量器示值VB(L)</th>
+                            <th class="border p-2 target-col">油温tj(℃)</th>
+                            <th class="border p-2 target-col">量器温tB(℃)</th>
+                            <th class="border p-2 target-col">实际体积Vbt(L)</th>
+                            <th class="border p-2 target-col">单次误差Ev(%)</th>
+                            <th class="border p-2 target-col">平均误差(%)</th>
+                            <th class="border p-2 target-col">重复性Er(%)</th>
+                            <th class="border p-2 target-col">检定结果</th>
+                            <th class="border p-2 target-col no-print">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+                <div class="date-line" id="showDate"></div>
+            </div>
+
+            <!-- 底部说明 -->
+            <div class="no-print bg-white rounded-xl shadow-md p-4 md:p-5 mt-4">
+                <h3 class="font-bold text-primary text-base mb-3">📋 检定规则与操作说明</h3>
+                <ul class="text-gray-600 text-sm space-y-2 list-disc pl-5">
+                    <li>规程限值：最大允许误差 <span class="text-danger font-semibold">±0.30%</span>，重复性要求 <span class="text-danger font-semibold">≤0.10%</span></li>
+                    <li>选择容器材质后录入原始数据，系统<strong>实时自动计算</strong>全部指标并判定结果</li>
+                    <li>每组包含3条测量数据，<span class="text-success">绿色=合格</span>，<span class="text-danger">红色=不合格</span></li>
+                    <li>打印/PDF建议：纸张A4、页面方向选择<strong>横向,缩放60%</strong>，关闭页眉页脚更整洁</li>
+                </ul>
             </div>
         </div>
 
-        <!-- PDF/打印 主体区域（包含标题+表格+签字+日期） -->
-        <div id="pdfWrap" class="rounded-xl shadow-md">
-            <!-- 文档标题 -->
-            <div class="doc-title"></div>
-
-            <!-- 数据表格 -->
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[1450px] border-collapse  text-xs md:text-xs">
-                    <thead>
-                    <tr class="bg-gradient-to-r from-gray-400 to-gray-600 h-12  text-white text-center">
-                        <th class="border p-2 target-col-2">油机编号</th>
-                        <th class="border p-2 target-col">油品名称</th>
-                        <th class="border p-2 target-col">标高容积H0(L)</th>
-                        <th class="border p-2 target-col">分度容积K(ml)</th>
-                        <th class="border p-2 target-col">证书标高(mm)</th>
-                        <th class="border p-2 target-col">量器刻度H(mm)</th>
-                        <th class="border p-2 target-col">加油机示值Vj(L)</th>
-                        <th class="border p-2 target-col">量器示值VB(L)</th>
-                        <th class="border p-2 target-col">油温tj(℃)</th>
-                        <th class="border p-2 target-col">量器温tB(℃)</th>
-                        <th class="border p-2 target-col">实际体积Vbt(L)</th>
-                        <th class="border p-2 target-col">单次误差Ev(%)</th>
-                        <th class="border p-2 target-col">平均误差(%)</th>
-                        <th class="border p-2 target-col">重复性Er(%)</th>
-                        <th class="border p-2 target-col">检定结果</th>
-                        <th class="border p-2 target-col no-print">操作</th>
-                    </tr>
-                    </thead>
-                    <tbody id="tableBody"></tbody>
-                </table>
-            </div>
-
-            <!-- 签字栏 -->
-            <!--
-            <div class="sign-box">
-                <div class="sign-item">校验人：<span style="display:inline-block;width:120px;border-bottom:1px solid #000;"></span></div>
-                <div class="sign-item">站经理：<span style="display:inline-block;width:120px;border-bottom:1px solid #000;"></span></div>
-                <div class="sign-item">县区经理：<span style="display:inline-block;width:120px;border-bottom:1px solid #000;"></span></div>
-            </div>
-            -->
-
-            <!-- 打印/导出日期 -->
-            <div class="date-line" id="showDate"></div>
+        <!-- 3. 即时盘点页面 -->
+        <div id="page2" class="page-box">
+            <iframe src="pd.html" width="100%" height="1000px"></iframe>
         </div>
 
-        <!-- 底部说明 仅网页显示 -->
-        <div class="no-print bg-white rounded-xl shadow-md p-4 md:p-5 mt-4">
-            <h3 class="font-bold text-primary text-base mb-3">📋 检定规则与操作说明</h3>
-            <ul class="text-gray-600 text-sm space-y-2 list-disc pl-5">
-                <li>规程限值：最大允许误差 <span class="text-danger font-semibold">±0.30%</span>，重复性要求 <span class="text-danger font-semibold">≤0.10%</span></li>
-                <li>选择容器材质后录入原始数据，系统<strong>实时自动计算</strong>全部指标并判定结果</li>
-                <li>每组包含3条测量数据，<span class="text-success">绿色=合格</span>，<span class="text-danger">红色=不合格</span></li>
-                <li>打印/PDF建议：纸张A4、页面方向选择<strong>横向,缩放60%</strong>，关闭页眉页脚更整洁</li>
-            </ul>
+        <!-- 4. 进货验收页面 -->
+        <div id="page3" class="page-box">
+            <div class="bg-white rounded-xl shadow-md p-8">
+                <h2 class="text-2xl font-bold text-redhat-base mb-4">进货验收</h2>
+                <p class="text-gray-600">正在加紧开发中……</p>
+            </div>
+        </div>
+
+        <!-- 5. 密度换算页面 -->
+
+        <div id="page4" class="page-box">
+            <iframe src="mdc.html" width="100%" height="1000px"></iframe>
+        </div>
+
+        <!-- 6. 规程标准页面 -->
+        <div id="page5" class="page-box">
+            <div class="bg-white rounded-xl shadow-md p-8">
+                <h2 class="text-2xl font-bold text-redhat-base mb-4">规程标准</h2>
+                <p class="text-gray-600">规程标准正在全力收集中，后续开放。</p>
+            </div>
+        </div>
+        <!-- 7. 联系我们页面 -->
+        <div id="page6" class="page-box">
+            <div class="bg-white rounded-xl shadow-md p-8">
+                <h2 class="text-2xl font-bold text-redhat-base mb-4">联系我们</h2>
+                <p class="text-gray-600">‌闲暇制作，不妥之处，请多提宝贵意见，微信号:-aiti-。</p>
+                <p class="text-gray-600">版本号：YOUPLUS V1.26.6</p>
+            </div>
         </div>
     </div>
-    <div class="no-print mt-4 bg-white rounded-lg shadow p-4 text-gray-600 text-center  md:text-sm">
-        <h4 class="font-light">100985.xyz© 2006-2026 LUCESTUDIO 车车工作室 All Rights Reserved  </h4>
 
-
+    <!-- 页脚 -->
+    <div class="no-print mt-4 bg-white rounded-lg shadow p-4 text-gray-600 text-center md:text-sm">
+        <h4 class="font-light">100985.xyz© 2006-2026 LUCESTUDIO 车车工作室 All Rights Reserved</h4>
     </div>
 </div>
 
 <script>
+    // ===================== 页面切换逻辑 =====================
+    let currentPage = 0;
+    // 导航切换页面 + 激活样式
+    function switchPage(index) {
+        // 隐藏所有页面
+        document.querySelectorAll('.page-box').forEach(item => {
+            item.classList.remove('page-show');
+        });
+        // 显示当前页面
+        document.getElementById('page' + index).classList.add('page-show');
+        // 导航高亮
+        document.querySelectorAll('.nav-item').forEach((item, idx) => {
+            if(idx === index){
+                item.classList.add('nav-active');
+            }else{
+                item.classList.remove('nav-active');
+            }
+        });
+        currentPage = index;
+    }
+
+    // ===================== 加油机检定原有业务逻辑（完整保留） =====================
     let groupCount = 0;
     const MPE = 0.30;
     const ReLimit = 0.10;
@@ -247,7 +323,7 @@
         window.print();
     }
 
-    // 稳定PDF导出（含标题、签字、日期，导出后页面正常复原）
+    // 导出PDF
     async function exportPdf() {
         const btn = event.target;
         const oldText = btn.innerText;
@@ -257,14 +333,12 @@
         try {
             setDocDate();
             const wrap = document.getElementById("pdfWrap");
-            // 备份输入框、下拉框原始值
             const inputs = wrap.querySelectorAll("input.cell-input");
             const selects = wrap.querySelectorAll("select.cell-select");
             const backup = [];
             inputs.forEach(inp => backup.push({ el: inp, val: inp.value }));
             selects.forEach(sel => backup.push({ el: sel, val: sel.value }));
 
-            // 表格内输入控件转为文本
             wrap.querySelectorAll("#tableBody td").forEach(td => {
                 const inp = td.querySelector("input");
                 const sel = td.querySelector("select");
@@ -272,7 +346,6 @@
                 if (sel) td.textContent = sel.options[sel.selectedIndex].text;
             });
 
-            // 渲染画布
             const canvas = await html2canvas(wrap, {
                 scale: 2,
                 useCORS: false,
@@ -281,7 +354,6 @@
                 logging: false
             });
 
-            // 生成PDF
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
             const imgData = canvas.toDataURL("image/jpeg", 0.95);
@@ -300,7 +372,6 @@
             pdf.addImage(imgData, "JPEG", x, y, fw, fh);
             pdf.save("加能站加油机校验记录.pdf");
 
-            // 恢复页面输入控件
             backup.forEach(item => {
                 item.el.value = item.val;
             });
